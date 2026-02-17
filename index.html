@@ -1,0 +1,95 @@
+<script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzEih0ZoCT-5BO4uLf1HaLkni7STFJ2zHOTFoviwifuRfC4OkeyiYE7xkpotUD6v5fG/exec";
+
+    // DETECTOR DE STAFF AUTOMÁTICO
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('staff')) {
+            showTab('tab-admin');
+        }
+    };
+
+    function showTab(tabId) {
+        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        
+        // Esto evita errores si se activa por URL
+        const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.innerText.includes(tabId === 'tab-admin' ? 'STAFF' : 'CLIENTES'));
+        if(activeBtn) activeBtn.classList.add('active');
+    }
+
+    function unlockAdmin() {
+        const pass = document.getElementById('admin-pass').value;
+        if(pass === "EVO2026") { // <--- TU CONTRASEÑA ACTUALIZADA
+            document.getElementById('admin-lock').style.display = 'none';
+            document.getElementById('admin-form').style.display = 'block';
+        } else {
+            alert("Contraseña incorrecta");
+        }
+    }
+
+    async function consultarStatus() {
+        const folio = document.getElementById('input-folio').value.trim().toUpperCase();
+        if(!folio) return alert("Escribe un folio");
+
+        const resDiv = document.getElementById('search-result');
+        const btn = document.querySelector('.btn-client');
+        btn.innerText = "Buscando...";
+
+        try {
+            const response = await fetch(`${SCRIPT_URL}?folio=${folio}`);
+            const data = await response.json();
+
+            if(data.error) {
+                alert("Folio no encontrado.");
+                resDiv.style.display = 'none';
+            } else {
+                resDiv.style.display = 'block';
+                document.getElementById('res-nombre').innerText = data.nombre;
+                document.getElementById('res-status').innerText = data.status;
+                document.getElementById('res-tiempo').innerText = data.tiempo || "Pendiente";
+                document.getElementById('res-obs').innerText = data.obs || "Sin notas";
+            }
+        } catch (e) {
+            alert("Folio no encontrado o error de red.");
+        } finally {
+            btn.innerText = "BUSCAR ESTATUS";
+        }
+    }
+
+    function adminSave() {
+        const nombre = document.getElementById('a-nombre').value;
+        if(!nombre) return alert("El nombre es obligatorio");
+
+        const data = {
+            folio: 'EB-' + Math.floor(1000 + Math.random() * 9000),
+            fecha: new Date().toLocaleDateString(),
+            nombre: nombre,
+            tel: document.getElementById('a-tel').value,
+            status: document.getElementById('a-status').value,
+            tiempo: "Ver notas",
+            observaciones: document.getElementById('a-obs').value
+        };
+
+        // Cambiamos a fetch normal para mejor manejo
+        fetch(SCRIPT_URL, { 
+            method: 'POST', 
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data) 
+        });
+
+        Swal.fire({
+            title: '¡Guardado!',
+            text: "Folio generado: " + data.folio,
+            icon: 'success',
+            confirmButtonText: 'OK'
+        });
+        
+        // Limpiar formulario
+        document.getElementById('a-nombre').value = "";
+        document.getElementById('a-tel').value = "";
+        document.getElementById('a-obs').value = "";
+    }
+</script>
