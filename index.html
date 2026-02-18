@@ -1,7 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVOBIKE - Portal de Seguimiento</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root { --primary: #003399; --success: #25d366; --dark: #1a1a1a; --light: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: #e9ecef; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; width: 100%; max-width: 450px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: white; padding: 20px; text-align: center; border-bottom: 2px solid var(--light); }
+        .header img { max-width: 150px; }
+        .nav { display: flex; background: #eee; margin: 15px; border-radius: 12px; padding: 5px; }
+        .nav-btn { flex: 1; border: none; padding: 10px; border-radius: 10px; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; }
+        .nav-btn.active { background: white; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .content { padding: 20px; display: none; }
+        .content.active { display: block; }
+        input, textarea, select { width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; background: var(--light); font-size: 14px; }
+        label { font-size: 11px; font-weight: bold; color: #555; text-transform: uppercase; margin-top: 15px; display: block; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 15px; transition: 0.3s; font-size: 14px; color: white; }
+        .btn-primary { background: var(--primary); }
+        .btn-client { background: var(--success); }
+        #search-result { margin-top: 20px; padding: 20px; border-radius: 12px; background: #f8f9fa; border-left: 6px solid var(--primary); display: none; }
+        .status-pill { display: inline-block; padding: 5px 15px; border-radius: 20px; background: #fff3cd; color: #856404; font-weight: bold; font-size: 12px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <img src="https://evobike.com.mx/cdn/shop/files/logo_600x.png?v=1614333552" alt="EVOBIKE">
+    </div>
+
+    <div class="nav">
+        <button id="btn-tab-client" class="nav-btn active" onclick="showTab('tab-client')">CLIENTES</button>
+        <button id="btn-tab-admin" class="nav-btn" onclick="showTab('tab-admin')">STAFF</button>
+    </div>
+
+    <div id="tab-client" class="content active">
+        <h3 style="text-align: center; color: var(--dark); margin-top: 0;">Consulta tu Servicio</h3>
+        <input type="text" id="input-folio" placeholder="Ej: EB-1234" style="text-align: center; font-size: 18px; font-weight: bold; text-transform: uppercase;">
+        <button class="btn btn-client" onclick="consultarStatus()">BUSCAR MI ESTATUS</button>
+
+        <div id="search-result">
+            <small style="color: #888;">Orden de:</small>
+            <div id="res-nombre" style="font-size: 18px; font-weight: bold; color: var(--primary);"></div>
+            <div id="res-status" class="status-pill"></div>
+            <label>Tiempo estimado:</label>
+            <div id="res-tiempo" style="font-size: 14px; color: #333;"></div>
+            <label>Observaciones:</label>
+            <div id="res-obs" style="font-size: 14px; color: #333; font-style: italic;"></div>
+        </div>
+    </div>
+
+    <div id="tab-admin" class="content">
+        <div id="admin-lock">
+            <p style="text-align: center; font-size: 13px;">Sección protegida para personal de EVOBIKE.</p>
+            <input type="password" id="admin-pass" placeholder="Contraseña de Staff" style="text-align: center;">
+            <button class="btn btn-primary" onclick="unlockAdmin()">ENTRAR</button>
+        </div>
+
+        <div id="admin-form" style="display: none;">
+            <h4 style="margin: 0; color: var(--primary);">Registro / Actualización</h4>
+            <label>Nombre del Cliente</label>
+            <input type="text" id="a-nombre">
+            <label>WhatsApp</label>
+            <input type="number" id="a-tel">
+            <label>Estatus</label>
+            <select id="a-status">
+                <option value="En Proceso">En Proceso</option>
+                <option value="Listo para Entrega">Listo para Entrega</option>
+                <option value="Finalizado">Entregado / Cerrado</option>
+            </select>
+            <label>Tiempo / Notas</label>
+            <textarea id="a-obs" rows="3"></textarea>
+            <button class="btn btn-primary" onclick="adminSave()">GUARDAR EN NUBE</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzEih0ZoCT-5BO4uLf1HaLkni7STFJ2zHOTFoviwifuRfC4OkeyiYE7xkpotUD6v5fG/exec";
 
-    // DETECTOR DE STAFF AUTOMÁTICO
+    // Detector de Staff por URL
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('staff')) {
@@ -14,24 +95,26 @@
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         
-        // Esto evita errores si se activa por URL
-        const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.innerText.includes(tabId === 'tab-admin' ? 'STAFF' : 'CLIENTES'));
-        if(activeBtn) activeBtn.classList.add('active');
+        if(tabId === 'tab-admin') {
+            document.getElementById('btn-tab-admin').classList.add('active');
+        } else {
+            document.getElementById('btn-tab-client').classList.add('active');
+        }
     }
 
     function unlockAdmin() {
         const pass = document.getElementById('admin-pass').value;
-        if(pass === "EVO2026") { // <--- TU CONTRASEÑA ACTUALIZADA
+        if(pass === "EVO2026") { 
             document.getElementById('admin-lock').style.display = 'none';
             document.getElementById('admin-form').style.display = 'block';
         } else {
-            alert("Contraseña incorrecta");
+            Swal.fire('Error', 'Contraseña incorrecta', 'error');
         }
     }
 
     async function consultarStatus() {
         const folio = document.getElementById('input-folio').value.trim().toUpperCase();
-        if(!folio) return alert("Escribe un folio");
+        if(!folio) return Swal.fire('Aviso', 'Escribe un folio', 'warning');
 
         const resDiv = document.getElementById('search-result');
         const btn = document.querySelector('.btn-client');
@@ -42,7 +125,7 @@
             const data = await response.json();
 
             if(data.error) {
-                alert("Folio no encontrado.");
+                Swal.fire('No encontrado', 'El folio no existe en la base de datos.', 'info');
                 resDiv.style.display = 'none';
             } else {
                 resDiv.style.display = 'block';
@@ -52,15 +135,15 @@
                 document.getElementById('res-obs').innerText = data.obs || "Sin notas";
             }
         } catch (e) {
-            alert("Folio no encontrado o error de red.");
+            Swal.fire('Error', 'No se pudo conectar con la base de datos.', 'error');
         } finally {
-            btn.innerText = "BUSCAR ESTATUS";
+            btn.innerText = "BUSCAR MI ESTATUS";
         }
     }
 
     function adminSave() {
         const nombre = document.getElementById('a-nombre').value;
-        if(!nombre) return alert("El nombre es obligatorio");
+        if(!nombre) return Swal.fire('Error', 'El nombre es obligatorio', 'error');
 
         const data = {
             folio: 'EB-' + Math.floor(1000 + Math.random() * 9000),
@@ -72,24 +155,18 @@
             observaciones: document.getElementById('a-obs').value
         };
 
-        // Cambiamos a fetch normal para mejor manejo
-        fetch(SCRIPT_URL, { 
-            method: 'POST', 
-            mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data) 
-        });
+        fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
 
         Swal.fire({
-            title: '¡Guardado!',
-            text: "Folio generado: " + data.folio,
-            icon: 'success',
-            confirmButtonText: 'OK'
+            title: '¡Registrado!',
+            text: "Se generó el folio: " + data.folio,
+            icon: 'success'
         });
-        
-        // Limpiar formulario
+
         document.getElementById('a-nombre').value = "";
         document.getElementById('a-tel').value = "";
         document.getElementById('a-obs').value = "";
     }
 </script>
+</body>
+</html>
